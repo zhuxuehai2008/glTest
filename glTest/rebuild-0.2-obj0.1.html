@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<script src="GLUtil0.2.js" type="text/javascript" charset="utf-8"></script>
+		<script src="MatrixUtilV0.2.js" type="text/javascript" charset="utf-8"></script>
+	</head>
+	<body>
+		<canvas id="canvas" width="400" height="500"/></canvas>
+		<script id ="basic_v" type="x-shader/x-vertex">
+			uniform mat4 Vmat;
+			attribute vec4 a_position;
+			attribute float a_size;
+			attribute vec4 color;
+			varying vec4 u_color;
+			uniform mat4 perspective;
+			void main(){
+			gl_Position = perspective*Vmat*a_position;
+			gl_PointSize = a_size;
+			u_color = color;
+			}
+		</script>
+		
+		<script id="basic_f" type="x-shader/x-fragment" >
+			precision mediump float;
+			varying vec4 u_color;
+			void main(){
+			gl_FragColor = u_color;
+			}
+		</script>
+		<script type="text/javascript">
+			var dom = document.getElementById("canvas");
+			cx = dom.offsetLeft+dom.width/2;
+			cy = dom.offsetTop+dom.height/2;
+			o={obj:{},mtl:{}};//o.obj.Cube.f.length
+			length=6;
+			dom.addEventListener("mousemove",move);//uvn
+			function perspective(fov,aspect,near,far){
+				var a = new Matrix([1/Math.tan(fov/2)/aspect,0,0,0,0,1/Math.tan(fov/2),0,0,0,0,(far+near)/(near-far),2*far*near/(near-far),0,0,-1,0]);
+				var mov = new Matrix([1,0,0,0,0,1,0,0,0,0,1,-15,0,0,0,1]);
+				return a.cross$(mov.Matrix).transpose();
+				//return a.transpose();
+			}
+			function trackBallMat(x,y,dom){
+				cx = dom.offsetLeft+dom.width/2;
+				cy = dom.offsetTop+dom.height/2;
+				x = (x-cx)/dom.width*1.5;
+				y= (cy - y)/dom.height*1.5;
+				z = Math.sqrt(1-x*x-y*y);
+				
+				var N = new Vector3(x,y,z);
+				var up = new Vector3(0,1,0);
+				var u = up.cross([x,y,z]);
+				var U = new Vector3(u[0],u[1],u[2]);
+				var v = N.cross(U.Vector);
+				var V = new Vector3(v[0],v[1],v[2]);
+				var Un =U.normalization();
+				var Vn = V.normalization();
+				var Nn = N.normalization();
+				
+				T=[];
+				T[0]=new Vector3(Un[0],Un[1],Un[2]).dot([0,0,0]);
+				T[1]=new Vector3(Vn[0],Vn[1],Vn[2]).dot([0,0,0]);
+				T[2]=new Vector3(Nn[0],Nn[1],Nn[2]).dot([0,0,0]);
+				
+				//console.log(T)
+				//	T = [0,0,0]
+				var VMat = new Matrix([Un[0],Un[1],Un[2],-T[0],Vn[0],Vn[1],Vn[2],-T[1],Nn[0],Nn[1],Nn[2],-T[2],0,0,0,1]);			
+				//console.log(new Float32Array(new Matrix(VMat.inverse()).transpose()));
+				return VMat.inverse$().transpose();
+			}
+			function move(event){
+				var k= trackBallMat(event.offsetX,event.offsetY,dom);
+				//useBuffer(gl,p,cubeVec);
+				//useBuffer(gl,ColorP,pBuffer1);
+				gl.uniformMatrix4fv(VmatP,false,k);
+				gl.uniformMatrix4fv(pers,false,perspective(Math.PI/3,dom.width/dom.height,0.1,50))
+				//gl.uniform4fv(ColorP,new Float32Array([0.9,0.9,0.0,1.0]))
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				//gl.drawArrays(gl.TRIANGLES,0,6);	
+				gl.drawElements(gl.TRIANGLES,o.obj.Cube.f.length,gl.UNSIGNED_BYTE,0);
+/*				gl.uniformMatrix4fv(VmatP,false,k0);
+				gl.uniform4fv(ColorP,new Float32Array([0.0,0.9,0.0,1.0]))
+				gl.drawArrays(gl.TRIANGLES,0,3);*/
+			}
+			var gl = getGL(dom);
+			gl.enable(gl.CULL_FACE); 
+			gl.enable(gl.DEPTH_TEST); 
+			gl.depthFunc(gl.LEQUAL);
+			var gl = useShaderProgram(gl,document.getElementById("basic_v").innerText,document.getElementById("basic_f").innerText);
+			var pBuffer = gl.createBuffer();
+			var pBuffer1 = gl.createBuffer();
+		   	var p = gl.getAttribLocation(gl.program,"a_position");
+		   	var VmatP = gl.getUniformLocation(gl.program,"Vmat");
+		   	var pers = gl.getUniformLocation(gl.program,"perspective");
+		   	var ColorP = gl.getAttribLocation(gl.program,"color");
+		   	array=new Float32Array([0.5,0.5,0.5,-0.5,0.5,0.5,-0.5,-0.5,0.5,0.5,0.5,-0.0,-0.5,0.5,-0.0,-0.5,-0.5,-0.0,0.5,0.5,-0.5,-0.5,0.5,-0.5,-0.5,-0.5,-0.5,0.5,0.5,-10.5,-0.5,0.5,-10.5,-0.5,-0.5,-10.5]);
+		   	colorArr=new Float32Array([0.5,0.0,0.0,0.5,0.0,0.0,0.5,0.0,0.0,0.5,0.5,0.0,0.5,0.5,0.0,0.5,0.5,0.0,0.0,0.5,0.0,0.0,0.5,0.0,0.0,0.5,0.0,0.0,0.5,0.5,0.0,0.5,0.5,0.0,0.5,0.5]);
+		   	var VMat0 = new Matrix([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+		   	writeBuffer(gl,pBuffer,array);
+		   	writeBuffer(gl,pBuffer1,colorArr);
+		   	gl.uniformMatrix4fv(VmatP,false,VMat0.Matrix);
+			gl.uniformMatrix4fv(pers,false,perspective(Math.PI/3,dom.width/dom.height,0.1,50))
+		   	//useBuffer(gl,ColorP,pBuffer1);
+			/*useBuffer(gl,p,pBuffer);
+			var k0 = new Float32Array(new Matrix(VMat0.inverse()).transpose());
+			gl.uniformMatrix4fv(VmatP,false,k0);
+			gl.drawArrays(gl.TRIANGLES,0,3);*/
+		   	//useBuffer(gl,p,pBuffer);
+		   	//gl.drawArrays(gl.TRIANGLES,0,3);
+		   	/*setTimeout(function(){
+		   		gl.clearColor(0.0,0.0,0.0,1.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+		   		useBuffer(gl,p,pBuffer1);
+		   		gl.drawArrays(gl.TRIANGLES,0,3);
+			},2000);*/
+			function extend(){
+				var options=arguments[1],copy ,target =arguments[0];
+					for (name in options) {
+		                copy = options[name];
+		                //覆盖拷贝
+		                target[name] = copy;
+	           	 	}
+				return target;
+			}			
+			
+			ajax("C:\\Users\\acer\\Desktop\\untitled2.obj",parseOBJ);
+			ajax("C:\\Users\\acer\\Desktop\\untitled2.mtl",parseMTL);
+			var color = [];
+			for(var i=0;i<o.obj.Cube.f.length;i++){
+				color.push(Math.random());
+				color.push(Math.random());
+				color.push(Math.random());
+			}
+			var faceBuffer = gl.createBuffer();
+			var cubeVec = gl.createBuffer();
+			var colorBuffer = gl.createBuffer();
+			var vecCube = new Float32Array(o.obj.Cube.vector);
+			console.log(vecCube);
+			writeBuffer(gl,cubeVec,vecCube);
+			useBuffer(gl,p,cubeVec);
+			writeBuffer(gl,colorBuffer,new Float32Array(color));
+			useBuffer(gl,ColorP,colorBuffer);
+			writeElementBuffer(gl,faceBuffer,new Uint8Array(o.obj.Cube.f))
+			gl.drawElements(gl.TRIANGLES,o.obj.Cube.f.length,gl.UNSIGNED_BYTE,0);
+			//gl.drawArrays(gl.TRIANGLES,0,6)
+			console.log(o);
+			function parseOBJ(e){
+					var obj=o.obj;
+					if(this.readyState==4){
+						x =this.response ;
+						//console.log(x.split("\n"));
+						var line = x.split("\n");
+						var name ="";
+						for(var i=0;i<line.length;i++){
+							var s = line[i].split(/\s+/);
+							//console.log(s,obj);
+							if(s[0]=="o"){
+								name=s[1];
+								obj[name]={};	
+								obj[name]["name"] =s[1];	
+								obj[name]["vector"] =[];
+								obj[name]["vn"] =[];
+								obj[name]["f"] =[];
+							}
+							if(s[0]=="v"){
+								//console.log(s[1],obj[name]["vector"]);
+								obj[name]["vector"].push(parseFloat(s[1]));
+								obj[name]["vector"].push(parseFloat(s[2]));
+								obj[name]["vector"].push(parseFloat(s[3]));
+							}
+							if(s[0]=="vn"){
+								//console.log(s[1],obj[name]["vn"]);
+								obj[name]["vn"].push(parseFloat(s[1]));
+								obj[name]["vn"].push(parseFloat(s[2]));
+								obj[name]["vn"].push(parseFloat(s[3]));
+							}
+							if(s[0]=="f"){
+								//console.log(s[1],obj[name]["vn"]);
+								//console.log(s,parseFloat(s[1].split("/")[0]));
+								obj[name]["f"].push(parseFloat(s[1].split("/")[0])-1);
+								obj[name]["f"].push(parseFloat(s[2].split("/")[0])-1);
+								obj[name]["f"].push(parseFloat(s[3].split("/")[0])-1);
+							}
+						}
+						//console.log(obj);
+						}
+					};
+			function parseMTL(e){
+				var obj=o.mtl;
+					if(this.readyState==4){
+						x =this.response ;
+						var line = x.split("\n");
+						var name ="";
+						for(var i=0;i<line.length;i++){
+							var s = line[i].split(/\s+/);
+							if(s[0]=="newmtl"){
+								name=s[1];
+								obj[name]={};	
+								obj[name]["name"] =s[1];	
+								obj[name]["Ns"] =0.0;
+								obj[name]["Ka"] =[];
+								obj[name]["Kd"] =[];
+								obj[name]["Ks"] =[];
+								obj[name]["Ni"] =0.0;
+							}
+							if(s[0]=="Ns"){
+								obj[name]["Ns"]=s[1];
+							}
+							if(s[0]=="Ka"){
+								obj[name]["Ka"]=[s[1],s[2],s[3]];
+							}
+							if(s[0]=="Kd"){
+								obj[name]["Kd"]=[s[1],s[2],s[3]];
+							}
+							if(s[0]=="Ks"){
+								obj[name]["Ks"]=[s[1],s[2],s[3]];
+							}
+							if(s[0]=="Ni"){
+								obj[name]["Ni"]=s[1];
+							}
+						}
+						
+					}
+
+			}
+			function ajax(url,fun){
+				var  a=new XMLHttpRequest();
+				//a.responseType="text";
+				a.onreadystatechange = fun;
+				a.open("post",url,false);
+				a.send();
+			}
+			//var v = new Vector3(1,0,0);
+			///console.log(v.cross([0,1,0]));
+		</script>
+	</body>
+</html>
